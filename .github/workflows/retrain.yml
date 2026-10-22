@@ -1,0 +1,55 @@
+# Retrain: download the latest DCS statistics and weather, rebuild the pipeline,
+# and open a pull request ONLY if the new model passes the quality gate.
+# Merging that PR runs CI, then CD deploys the new model.
+name: Retrain
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Why retrain?
+        required: true
+        default: new season statistics released
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  DAGSHUB_OWNER: ${{ vars.DAGSHUB_OWNER }}
+  DAGSHUB_REPO: ${{ vars.DAGSHUB_REPO || 'paddy-yield-sl' }}
+  DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen --extra mlops
+      - run: make dvc-auth && uv run dvc pull
+      - name: Fresh data
+        run: |
+          uv run python -m src.dcs download --force
+          uv run python -m src.weather --force
+          uv run python -m src.weather oni
+          uv run dvc add data/raw/dcs data/raw/weather data/raw/oni
+      - name: Rebuild pipeline (parse -> features -> validate -> train)
+        run: uv run dvc repro
+      - name: Quality gate
+        run: uv run python -m src.gate
+      - run: uv run dvc push
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: retrain/${{ github.run_id }}
+          title: "Retrain: ${{ inputs.reason }}"
+          body-path: gate_report.md
+          commit-message: "Retrain model (${{ inputs.reason }})"
+          add-paths: |
+            dvc.lock
+            data/raw/*.dvc
+            artifacts/metrics.json
+            artifacts/cv_results.csv
+            artifacts/run_info.json

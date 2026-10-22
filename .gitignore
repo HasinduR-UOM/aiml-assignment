@@ -1,0 +1,27 @@
+# Python / tooling
+__pycache__/
+.venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+*.log
+mlruns/
+*.zip
+
+# Local editor / tool settings
+.vscode/
+.idea/
+.claude/
+
+# Local working files
+monitoring/current.csv
+gate_report.md
+
+# Large files are versioned with DVC, not git
+data/raw/*/
+data/interim/*.csv
+data/processed/*.csv
+artifacts/models/
+artifacts/app_metadata.json
+artifacts/train_sample.csv
+artifacts/test_predictions.csv

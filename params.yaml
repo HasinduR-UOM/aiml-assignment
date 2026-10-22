@@ -1,0 +1,9 @@
+# Single source of truth for pipeline settings (read by DVC and by src/*).
+train:
+  n_iter: 30           # RandomizedSearchCV draws per model
+gate:
+  metric: test_rmse_normal   # RMSE (kg/ha) on test seasons excluding the fertilizer crisis
+  tolerance: 0.0             # challenger must be <= champion + tolerance
+monitor:
+  drift_share_threshold: 0.3 # retrain if >= 30 % of weather features drift
+  p_value: 0.05

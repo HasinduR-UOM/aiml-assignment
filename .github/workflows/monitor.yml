@@ -1,0 +1,56 @@
+# Monitor: weekly (and on demand) export the API's prediction logs from Azure,
+# test them for data drift against the training data, and start Retrain if needed.
+name: Monitor
+on:
+  schedule:
+    - cron: "0 3 * * 1"     # Mondays 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  actions: write
+
+env:
+  DAGSHUB_OWNER: ${{ vars.DAGSHUB_OWNER }}
+  DAGSHUB_REPO: ${{ vars.DAGSHUB_REPO || 'paddy-yield-sl' }}
+  DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+  LOG_ANALYTICS_WORKSPACE_ID: ${{ vars.LOG_ANALYTICS_WORKSPACE_ID }}
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen --extra mlops
+      - run: make dvc-auth && uv run dvc pull
+      - uses: azure/login@v2
+        if: vars.AZURE_CLIENT_ID != ''
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Export last 7 days of predictions
+        if: vars.AZURE_CLIENT_ID != ''
+        run: uv run python -m monitoring.export_logs --hours 168 --out monitoring/current.csv || true
+      - name: Drift check
+        id: drift
+        run: |
+          if [ -f monitoring/current.csv ] && [ "$(wc -l < monitoring/current.csv)" -gt 10 ]; then
+            uv run python -m monitoring.drift_check --current monitoring/current.csv
+          else
+            uv run python -m monitoring.drift_check
+          fi
+          cat monitoring/drift_report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drift-report
+          path: monitoring/drift_*
+      - name: Start retraining
+        if: steps.drift.outputs.retrain == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run retrain.yml -f reason="drift detected by Monitor run ${{ github.run_id }}"

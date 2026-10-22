@@ -1,0 +1,9 @@
+.venv
+.git
+.dvc/cache
+data
+notebooks
+mlruns
+reports
+artifacts/figures
+artifacts/*.csv
