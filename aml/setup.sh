@@ -18,7 +18,8 @@ ID_NAME="${ID_NAME:-id-paddy-github}"
 az extension add -n ml --upgrade -y -o none
 echo "== Subscription: $(az account show --query name -o tsv)"
 for ns in Microsoft.MachineLearningServices Microsoft.Storage Microsoft.KeyVault Microsoft.Insights \
-          Microsoft.ContainerRegistry Microsoft.OperationalInsights Microsoft.ManagedIdentity; do
+          Microsoft.ContainerRegistry Microsoft.OperationalInsights Microsoft.ManagedIdentity \
+          Microsoft.Cdn Microsoft.PolicyInsights Microsoft.Network Microsoft.Compute; do
   az provider register -n "$ns" --wait -o none
 done
 
