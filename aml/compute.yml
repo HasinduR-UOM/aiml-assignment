@@ -1,7 +1,8 @@
 $schema: https://azuremlschemas.azureedge.net/latest/amlCompute.schema.json
-name: cpu-cluster
+name: train-cluster
 type: amlcompute
-size: Standard_DS3_v2          # 4 vCPU, 14 GB; billed only while a job runs
+size: Standard_D4s_v3          # 4 vCPU, 16 GB; billed only while a job runs
+                                # (DSv3 family, so it does not share the 4-vCPU DSv2 quota with the endpoint)
 min_instances: 0
 max_instances: 1
 idle_time_before_scale_down: 300

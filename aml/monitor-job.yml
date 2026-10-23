@@ -5,7 +5,7 @@ experiment_name: paddy-yield-monitoring
 description: Kolmogorov-Smirnov drift test of the inputs the endpoint received vs the training seasons
 code: ../
 environment: azureml:paddy-env@latest
-compute: azureml:cpu-cluster
+compute: azureml:train-cluster
 command: >-
   python -m monitoring.drift_check
   --current ${{inputs.collected}}

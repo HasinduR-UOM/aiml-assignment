@@ -39,7 +39,7 @@ az ml workspace show -n "$WS" -g "$RG" -o none 2>/dev/null || az ml workspace cr
 az configure --defaults group="$RG" workspace="$WS" location="$LOCATION"
 
 echo "== Compute cluster (scales to 0 when idle)"
-az ml compute show -n cpu-cluster -o none 2>/dev/null || az ml compute create -f aml/compute.yml -o none
+az ml compute show -n train-cluster -o none 2>/dev/null || az ml compute create -f aml/compute.yml -o none
 
 echo "== Environment paddy-env (image builds on first use, ~10 min)"
 az ml environment create -f aml/environment.yml -o none
