@@ -41,7 +41,12 @@ jobs:
           az configure --defaults group=${{ vars.AZURE_RESOURCE_GROUP }} workspace=${{ vars.AZURE_ML_WORKSPACE }}
 
       - name: Endpoint
-        run: az ml online-endpoint show -n $EP -o none 2>/dev/null || az ml online-endpoint create -f aml/endpoint.yml -o none
+        run: |
+          STATE=$(az ml online-endpoint show -n $EP --query provisioning_state -o tsv 2>/dev/null || true)
+          echo "Endpoint state: ${STATE:-missing}"
+          # A failed endpoint cannot take deployments; it has no traffic, so recreate it
+          if [ "$STATE" = "Failed" ]; then az ml online-endpoint delete -n $EP --yes -o none; STATE=""; fi
+          [ -n "$STATE" ] || az ml online-endpoint create -f aml/endpoint.yml -o none
 
       - name: Deploy model version ${{ inputs.model_version }}
         run: |
