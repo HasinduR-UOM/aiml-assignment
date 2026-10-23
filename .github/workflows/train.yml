@@ -79,6 +79,9 @@ jobs:
           az ml job download -n ${{ steps.job.outputs.train }} --output-name model_dir --download-path out
           cp "$(find out -name metrics.json | head -1)" metrics.json
           cat metrics.json
+          # A cached prep step keeps its output under an earlier job, so register the table from a local copy
+          az ml job download -n ${{ steps.job.outputs.prep }} --output-name model_table --download-path out_table
+          test -n "$(find out_table -name model_table.csv)"
 
       - name: Current champion
         run: |
@@ -105,10 +108,10 @@ jobs:
           import json; m=json.load(open('metrics.json'))
           for k,v in m.items(): print(f'{k}={v}')")
           VER=$(az ml model create --name paddy-yield --type custom_model \
-                --path "azureml://jobs/${{ steps.job.outputs.train }}/outputs/model_dir" \
+                --path "$(dirname "$(find out -name metrics.json | head -1)")" \
                 --tags "${TAGS[@]}" "job=$JOB" "champion=false" --query version -o tsv)
           az ml data create --name paddy-model-table --version "$(date +%Y%m%d%H%M)" --type uri_folder \
-                --path "azureml://jobs/${{ steps.job.outputs.prep }}/outputs/model_table" -o none
+                --path "$(dirname "$(find out_table -name model_table.csv | head -1)")" -o none
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "Registered paddy-yield version $VER" >> "$GITHUB_STEP_SUMMARY"
 
