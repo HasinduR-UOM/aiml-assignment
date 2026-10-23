@@ -23,8 +23,8 @@ analysis = ["shap>=0.46", "lime==0.2.0.1", "matplotlib>=3.8", "seaborn>=0.13", "
 # MLOps: tracking, data versioning, contracts, serving
 # API runtime (the Docker image installs only core + serve)
 serve = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
-# MLOps tooling: tracking/registry (DagsHub MLflow server is 2.x), data versioning, data contract
-mlops = ["mlflow>=2.16,<3", "dvc>=3.50", "pandera>=0.20", "httpx>=0.27", "scipy>=1.11"]
+# MLOps tooling: MLflow tracking in Azure ML (2.x client), data contract, Azure ML SDK (YAML checks)
+mlops = ["mlflow>=2.16,<3", "azureml-mlflow>=1.60", "azure-ai-ml>=1.20", "pandera>=0.20", "httpx>=0.27", "scipy>=1.11"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.ruff]

@@ -1,4 +1,4 @@
-"""API smoke tests. Skipped when no trained model is present (e.g. before `dvc pull`)."""
+"""API smoke tests. Skipped when no trained model is present (e.g. before the first training run)."""
 from pathlib import Path
 
 import pytest

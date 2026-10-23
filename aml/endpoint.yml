@@ -1,0 +1,4 @@
+$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineEndpoint.schema.json
+name: paddy-yield-ep
+description: Pre-harvest district paddy yield forecast
+auth_mode: key

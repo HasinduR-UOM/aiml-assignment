@@ -1,5 +1,5 @@
-# CI: runs on every pull request into main. Blocks broken code, a stale
-# pipeline (dvc.lock out of date) and a model that is worse than the champion.
+# CI: every pull request into main. Lint, unit/contract/scoring tests, and an
+# offline schema check of all Azure ML YAML files.
 name: CI
 on:
   pull_request:
@@ -7,42 +7,19 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-
-env:
-  DAGSHUB_OWNER: ${{ vars.DAGSHUB_OWNER }}
-  DAGSHUB_REPO: ${{ vars.DAGSHUB_REPO || 'paddy-yield-sl' }}
-  DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
 
 jobs:
-  test-and-gate:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
-      - name: Install
-        run: uv sync --frozen --extra serve --extra mlops --extra dev
+      - run: uv sync --frozen --extra serve --extra mlops --extra dev
       - name: Lint
         run: uv run ruff check .
-      - name: Unit tests
+      - name: Tests
         run: uv run pytest -q
-      - name: Pull data and model from DagsHub
-        run: |
-          make dvc-auth
-          uv run dvc pull
-      - name: Pipeline is up to date (dvc.lock matches code and data)
-        run: |
-          uv run dvc status
-          test -z "$(uv run dvc status --json | tr -d '{} \n')" || (echo "Run 'make repro && dvc push' and commit dvc.lock" && exit 1)
-      - name: API tests with the real model
-        run: uv run pytest -q tests/test_api.py
-      - name: Quality gate
-        id: gate
-        run: uv run python -m src.gate
-      - name: Post gate report on the PR
-        if: always() && hashFiles('gate_report.md') != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh pr comment ${{ github.event.pull_request.number }} --body-file gate_report.md
+      - name: Validate Azure ML YAML
+        run: uv run python -m aml.validate

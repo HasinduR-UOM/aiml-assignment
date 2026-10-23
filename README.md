@@ -88,23 +88,21 @@ Test seasons 2016-2025 (filled in from `artifacts/metrics.json` after the final 
 
 "Normal seasons" excludes the 2021/22 fertilizer-crisis seasons, which have no precedent in the training period.
 
-## MLOps
+## MLOps on Azure Machine Learning
 
 | Stage | Implementation |
 |---|---|
-| Environment | `uv` with a locked `uv.lock`; GitHub Codespaces devcontainer |
-| Data and model versioning | DVC pipeline (`dvc.yaml`), remote storage on DagsHub |
-| Experiment tracking and registry | MLflow on DagsHub, model `paddy-yield` with alias `@champion` |
-| Data quality | pandera data contract (`src/contract.py`) as a pipeline stage |
+| Environment | `uv.lock` locally; Azure ML environment `paddy-env` pinned to the same versions; Codespaces devcontainer |
+| Data versioning | Azure ML data assets: `paddy-raw` (downloaded DCS + weather files) and `paddy-model-table` (pipeline output), new version per run |
+| Training | Azure ML pipeline job (`aml/pipeline.yml`) on a CPU cluster that scales to zero |
+| Data quality | pandera data contract inside the prep step |
+| Experiment tracking | MLflow, logged automatically to the pipeline job in Azure ML studio |
+| Model registry | Azure ML model `paddy-yield`; each version tagged with its metrics, source job and `champion=true/false` |
 | Quality gate | a new model must not have a higher normal-season test RMSE than the champion (`src/gate.py`) |
-| Serving | FastAPI in Docker, image on GitHub Container Registry |
-| Hosting | Azure Container Apps (scale to zero), logs in Log Analytics, OIDC login from GitHub Actions |
-| CI | lint, tests, `dvc.lock` check, API tests, quality gate; gate report posted on the pull request |
-| CD | build and push image, manual approval, deploy, smoke test, promote to `@champion` |
-| Monitoring | weekly Kolmogorov-Smirnov drift test on live inputs against the training data |
-| Retraining | fresh data, rebuilt pipeline, gate, and a pull request for review |
-
-Setup and deployment steps are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+| Serving | Azure ML managed online endpoint `paddy-yield-ep`, key auth, scoring script `aml/score.py` |
+| Release | GitHub Actions with OIDC login: manual approval, in-place or blue-green (0% -> smoke test -> 10% -> 100%) |
+| Monitoring | endpoint data collector + weekly Azure ML schedule running a Kolmogorov-Smirnov drift test, metrics in MLflow |
+| Retraining | Train workflow monthly with fresh data (and on demand); only gated models are registered and deployed |
 
 ## Limitations
 

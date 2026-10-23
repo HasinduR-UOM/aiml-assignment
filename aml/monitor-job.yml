@@ -1,0 +1,23 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: paddy-yield-drift-check
+experiment_name: paddy-yield-monitoring
+description: Kolmogorov-Smirnov drift test of the inputs the endpoint received vs the training seasons
+code: ../
+environment: azureml:paddy-env@latest
+compute: azureml:cpu-cluster
+command: >-
+  python -m monitoring.drift_check
+  --current ${{inputs.collected}}
+  --reference ${{inputs.reference}}
+  --out ${{outputs.report}}
+inputs:
+  collected:
+    type: uri_folder
+    path: azureml://datastores/workspaceblobstore/paths/modelDataCollector/paddy-yield-ep
+  reference:
+    type: uri_folder
+    path: azureml:paddy-model-table@latest
+outputs:
+  report:
+    type: uri_folder

@@ -1,0 +1,14 @@
+# Files Azure ML does not upload as job / deployment code
+.git/
+.github/
+.devcontainer/
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+data/
+artifacts/
+notebooks/
+mlruns/
+*.zip
+uv.lock

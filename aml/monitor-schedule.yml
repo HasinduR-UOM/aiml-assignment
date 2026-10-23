@@ -1,0 +1,13 @@
+$schema: https://azuremlschemas.azureedge.net/latest/schedule.schema.json
+name: paddy-yield-weekly-drift
+display_name: Weekly drift check on endpoint inputs
+trigger:
+  type: recurrence
+  frequency: week
+  interval: 1
+  schedule:
+    hours: [3]
+    minutes: [0]
+    week_days: [monday]
+  time_zone: "Sri Lanka Standard Time"
+create_job: ./monitor-job.yml

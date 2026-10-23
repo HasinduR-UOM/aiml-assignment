@@ -1,0 +1,53 @@
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: paddy-yield-training
+experiment_name: paddy-yield
+description: Raw DCS + weather data -> validated model table -> tuned models, metrics and model folder
+
+settings:
+  default_compute: azureml:cpu-cluster
+  default_datastore: azureml:workspaceblobstore
+  continue_on_step_failure: false
+
+inputs:
+  raw_data:
+    type: uri_folder
+    path: azureml:paddy-raw@latest
+  n_iter: 30
+
+outputs:
+  model_table:
+    type: uri_folder
+  model_dir:
+    type: uri_folder
+
+jobs:
+  prep:
+    type: command
+    display_name: parse, features, data contract
+    code: ../
+    environment: azureml:paddy-env@latest
+    command: >-
+      python -m aml.steps.prep
+      --raw ${{inputs.raw}}
+      --out ${{outputs.model_table}}
+    inputs:
+      raw: ${{parent.inputs.raw_data}}
+    outputs:
+      model_table: ${{parent.outputs.model_table}}
+
+  train:
+    type: command
+    display_name: tune 8 models, evaluate, save
+    code: ../
+    environment: azureml:paddy-env@latest
+    command: >-
+      python -m aml.steps.train
+      --table ${{inputs.table}}
+      --n-iter ${{inputs.n_iter}}
+      --out ${{outputs.model_dir}}
+    inputs:
+      table: ${{parent.jobs.prep.outputs.model_table}}
+      n_iter: ${{parent.inputs.n_iter}}
+    outputs:
+      model_dir: ${{parent.outputs.model_dir}}

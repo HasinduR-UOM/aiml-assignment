@@ -17,7 +17,7 @@ mlruns/
 monitoring/current.csv
 gate_report.md
 
-# Large files are versioned with DVC, not git
+# Data and models are versioned as Azure ML data and model assets, not in git
 data/raw/*/
 data/interim/*.csv
 data/processed/*.csv

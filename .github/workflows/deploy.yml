@@ -1,0 +1,74 @@
+# Deploy: put a registered model version on the managed online endpoint after a
+# human approves the "production" environment. In-place update by default;
+# blue-green (new deployment at 0 %, smoke test, 10 % canary, 100 %) on request.
+# The deployed version becomes the champion.
+name: Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      model_version:
+        description: paddy-yield model version to deploy
+        required: true
+      strategy:
+        description: inplace (needs less quota) or bluegreen
+        type: choice
+        options: [inplace, bluegreen]
+        default: inplace
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  EP: paddy-yield-ep
+  V: ${{ inputs.model_version }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure ML CLI
+        run: |
+          az extension add -n ml --upgrade -y -o none
+          az configure --defaults group=${{ vars.AZURE_RESOURCE_GROUP }} workspace=${{ vars.AZURE_ML_WORKSPACE }}
+
+      - name: Endpoint
+        run: az ml online-endpoint show -n $EP -o none 2>/dev/null || az ml online-endpoint create -f aml/endpoint.yml -o none
+
+      - name: Deploy model version ${{ inputs.model_version }}
+        run: |
+          CUR=$(az ml online-endpoint show -n $EP --query traffic -o json | python3 -c \
+            "import json,sys; t=json.load(sys.stdin) or {}; print(max(t, key=t.get) if t and max(t.values())>0 else '')")
+          echo "Live deployment: ${CUR:-none}"
+          smoke() { az ml online-endpoint invoke -n $EP $1 --request-file aml/sample-request.json | tee /dev/stderr | grep -q yield_kg_ha; }
+          if [ -z "$CUR" ]; then
+            az ml online-deployment create -f aml/deployment.yml --set name=blue model=azureml:paddy-yield:$V --all-traffic -o none
+          elif [ "${{ inputs.strategy }}" = "inplace" ]; then
+            az ml online-deployment update -f aml/deployment.yml --set name=$CUR model=azureml:paddy-yield:$V -o none
+          else
+            NEW=$([ "$CUR" = "blue" ] && echo green || echo blue)
+            az ml online-deployment delete -n $NEW -e $EP --yes -o none 2>/dev/null || true
+            az ml online-deployment create -f aml/deployment.yml --set name=$NEW model=azureml:paddy-yield:$V -o none
+            smoke "--deployment-name $NEW"
+            az ml online-endpoint update -n $EP --traffic "$CUR=90 $NEW=10" -o none
+            sleep 60 && smoke ""
+            az ml online-endpoint update -n $EP --traffic "$NEW=100" -o none
+            az ml online-deployment delete -n $CUR -e $EP --yes --no-wait -o none
+          fi
+          smoke ""
+
+      - name: Mark champion
+        run: |
+          for OLD in $(az ml model list -n paddy-yield --query "[?tags.champion=='true'].version" -o tsv); do
+            [ "$OLD" != "$V" ] && az ml model update -n paddy-yield -v $OLD --set tags.champion=false -o none
+          done
+          az ml model update -n paddy-yield -v $V --set tags.champion=true -o none
+          echo "paddy-yield v$V is live on $EP and tagged champion" >> "$GITHUB_STEP_SUMMARY"

@@ -85,7 +85,7 @@ def build_app_metadata(df: pd.DataFrame, features: list[str], best_name: str,
 
 
 def summary_metrics(best_name, cv_table, preds, best_slug, n_train, n_test) -> dict:
-    """Headline numbers for DVC metrics, the quality gate and MLflow."""
+    """Headline numbers for the quality gate, the model tags and MLflow."""
     col = f"pred_{best_slug}"
     crisis = preds.apply(lambda r: (r.season, int(r.season_year)) in C.FERTILIZER_CRISIS, axis=1)
     allm = regression_metrics(preds[TARGET], preds[col])
@@ -116,8 +116,7 @@ def run(n_iter: int = 30, only: list[str] | None = None) -> dict:
     cv_table = pd.DataFrame([{"model": k, "cv_rmse": v["cv_rmse"], "cv_rmse_std": v["cv_rmse_std"],
                               "tuning_seconds": v["fit_s"],
                               "best_params": json.dumps({p.split("__")[-1]: (round(x, 5) if isinstance(x, float) else x)
-                                                         for p, x in v["search"].best_params_.items()}, default=str)
-                              if v["search"] is not None else "members tuned above"}
+                                                         for p, x in v["search"].best_params_.items()}, default=str)}
                              for k, v in results.items()]).sort_values("cv_rmse").reset_index(drop=True)
 
     test_table = evaluate(fitted, test, features)
@@ -147,7 +146,7 @@ def run(n_iter: int = 30, only: list[str] | None = None) -> dict:
     metrics = summary_metrics(best_name, cv_table, preds, slug(best_name), len(train), len(test))
     (C.ARTIFACTS / "metrics.json").write_text(json.dumps(metrics, indent=2))
     print(f"\nSaved models and metadata to {C.ARTIFACTS.relative_to(C.ROOT)}/")
-    try:  # MLflow tracking is optional: only runs when MLFLOW_TRACKING_URI / DagsHub env vars are set
+    try:  # MLflow tracking is optional: on inside Azure ML jobs or when MLFLOW_TRACKING_URI is set
         from .tracking import log_training_run
         log_training_run(metrics, cv_table, test_table, final, features, df)
     except ImportError:

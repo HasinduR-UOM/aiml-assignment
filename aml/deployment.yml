@@ -1,0 +1,19 @@
+$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+# name and model are set by the deploy workflow (--set name=... model=...)
+name: blue
+endpoint_name: paddy-yield-ep
+model: azureml:paddy-yield@latest
+code_configuration:
+  code: ../
+  scoring_script: aml/score.py
+environment: azureml:paddy-env@latest
+instance_type: Standard_DS2_v2
+instance_count: 1
+data_collector:
+  collections:
+    model_inputs:
+      enabled: 'True'
+    model_outputs:
+      enabled: 'True'
+request_settings:
+  request_timeout_ms: 30000

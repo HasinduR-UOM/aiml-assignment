@@ -1,0 +1,25 @@
+# Same library versions as uv.lock (Python 3.12), so models trained in Azure ML
+# load and behave exactly like the ones trained locally.
+name: paddy-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - numpy==2.5.4
+      - pandas==2.3.3
+      - scipy==1.18.1
+      - scikit-learn==1.9.1
+      - xgboost==3.4.1
+      - lightgbm==4.7.0
+      - joblib==1.6.0
+      - pyyaml==6.0.3
+      - requests==2.34.2
+      - openpyxl==3.1.5
+      - pdfplumber==0.11.10
+      - pandera==0.34.1
+      - mlflow==2.22.5
+      - azureml-mlflow==1.62.0.post6
+      - azureml-inference-server-http
+      - azureml-ai-monitoring

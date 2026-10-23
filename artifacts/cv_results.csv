@@ -1,0 +1,9 @@
+model,cv_rmse,cv_rmse_std,tuning_seconds,best_params
+Ridge (baseline),406.7678576766918,63.90887050854127,2.6617825031280518,"{""alpha"": 17.71885}"
+SVR (RBF),413.5862572357063,66.92230707520783,1.148392677307129,"{""C"": 21.83097, ""epsilon"": 0.19906, ""gamma"": 0.001}"
+Gradient Boosting,427.62099755530943,72.37882757302383,29.413981914520264,"{""learning_rate"": 0.01372, ""max_depth"": 5, ""min_samples_leaf"": 14, ""n_estimators"": 755, ""subsample"": 0.7666}"
+LightGBM,428.94026816178047,73.68674304740385,3.565200090408325,"{""colsample_bytree"": 0.91622, ""learning_rate"": 0.01889, ""min_child_samples"": 25, ""n_estimators"": 360, ""num_leaves"": 19, ""reg_lambda"": 1.83015, ""subsample"": 0.60283, ""subsample_freq"": 1}"
+XGBoost,429.0067180463874,69.39355758339394,4.391190052032471,"{""colsample_bytree"": 0.50782, ""learning_rate"": 0.03555, ""max_depth"": 2, ""min_child_weight"": 12, ""n_estimators"": 847, ""reg_alpha"": 0.00105, ""reg_lambda"": 10.38406, ""subsample"": 0.88274}"
+Random Forest,431.821751704657,68.84890951314397,32.12798619270325,"{""max_depth"": 16, ""max_features"": 0.8, ""min_samples_leaf"": 3, ""n_estimators"": 563}"
+Decision Tree,460.5176759560924,84.95757307914185,0.2917032241821289,"{""ccp_alpha"": 0.81119, ""max_depth"": 7, ""min_samples_leaf"": 37}"
+KNN,475.44616812772813,62.859861588190306,0.3848094940185547,"{""n_neighbors"": 9, ""weights"": ""distance""}"

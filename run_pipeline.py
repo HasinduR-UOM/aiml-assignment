@@ -3,7 +3,7 @@
     python run_pipeline.py                    # download -> parse -> weather -> features -> validate -> train
     python run_pipeline.py --from features    # resume from a step
 
-With DVC installed, `dvc repro` runs the same stages and skips unchanged ones.
+The same prep and train steps run in Azure ML with `make aml-train` (aml/pipeline.yml).
 """
 import argparse
 import subprocess

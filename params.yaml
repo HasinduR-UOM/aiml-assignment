@@ -1,4 +1,4 @@
-# Single source of truth for pipeline settings (read by DVC and by src/*).
+# Single source of truth for pipeline settings (read by src/* and the Azure ML pipeline).
 train:
   n_iter: 30           # RandomizedSearchCV draws per model
 gate:

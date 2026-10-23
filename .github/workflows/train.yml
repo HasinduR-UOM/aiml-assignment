@@ -1,0 +1,111 @@
+# Train: run the Azure ML pipeline (prep -> train), apply the quality gate
+# against the current champion, register the model and the model table, and
+# start the Deploy workflow. Runs on demand, monthly with fresh data, and when
+# training code changes on main.
+name: Train
+on:
+  workflow_dispatch:
+    inputs:
+      n_iter:
+        description: RandomizedSearchCV draws per model
+        default: "30"
+      refresh_data:
+        description: Download fresh DCS + weather data first
+        type: boolean
+        default: false
+  schedule:
+    - cron: "30 2 1 * *"        # 1st of every month, 08:00 Sri Lanka time
+  push:
+    branches: [main]
+    paths: ["src/**", "aml/**", "params.yaml"]
+
+permissions:
+  contents: read
+  id-token: write
+  actions: write
+
+env:
+  N_ITER: ${{ inputs.n_iter || '30' }}
+  REFRESH: ${{ github.event_name == 'schedule' || inputs.refresh_data == true }}
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure ML CLI
+        run: |
+          az extension add -n ml --upgrade -y -o none
+          az configure --defaults group=${{ vars.AZURE_RESOURCE_GROUP }} workspace=${{ vars.AZURE_ML_WORKSPACE }}
+
+      - name: Refresh raw data asset
+        if: env.REFRESH == 'true'
+        run: |
+          uv run python -m src.dcs download --force
+          uv run python -m src.weather --force
+          uv run python -m src.weather oni
+          az ml data create --name paddy-raw --version "$(date +%Y%m%d%H%M)" --type uri_folder --path data/raw -o none
+
+      - name: Run Azure ML pipeline
+        id: job
+        run: |
+          JOB=$(az ml job create -f aml/pipeline.yml --set inputs.n_iter=$N_ITER --query name -o tsv)
+          echo "job=$JOB" >> "$GITHUB_OUTPUT"
+          echo "Pipeline job: $JOB"
+          az ml job stream -n "$JOB" || true
+          STATUS=$(az ml job show -n "$JOB" --query status -o tsv)
+          echo "Status: $STATUS"
+          test "$STATUS" = "Completed"
+
+      - name: Download metrics
+        run: |
+          az ml job download -n ${{ steps.job.outputs.job }} --output-name model_dir --download-path out
+          cp "$(find out -name metrics.json | head -1)" metrics.json
+          cat metrics.json
+
+      - name: Current champion
+        run: |
+          az ml model list -n paddy-yield -o json > models.json 2>/dev/null || echo "[]" > models.json
+          uv run python -c "
+          import json; ms=[m for m in json.load(open('models.json')) if (m.get('tags') or {}).get('champion')=='true']
+          m=max(ms, key=lambda m:int(m['version'])) if ms else None
+          json.dump(dict(m['tags'], version=m['version']) if m else None, open('champion.json','w'))"
+          cat champion.json
+
+      - name: Quality gate
+        run: |
+          set +e
+          uv run python -m src.gate --challenger metrics.json --champion champion.json
+          RC=$?
+          cat gate_report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $RC
+
+      - name: Register model and data
+        id: reg
+        run: |
+          JOB=${{ steps.job.outputs.job }}
+          mapfile -t TAGS < <(uv run python -c "
+          import json; m=json.load(open('metrics.json'))
+          for k,v in m.items(): print(f'{k}={v}')")
+          VER=$(az ml model create --name paddy-yield --type custom_model \
+                --path "azureml://jobs/$JOB/outputs/model_dir" \
+                --tags "${TAGS[@]}" "job=$JOB" "champion=false" --query version -o tsv)
+          az ml data create --name paddy-model-table --version "$(date +%Y%m%d%H%M)" --type uri_folder \
+                --path "azureml://jobs/$JOB/outputs/model_table" -o none
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Registered paddy-yield version $VER" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy.yml -f model_version=${{ steps.reg.outputs.version }}

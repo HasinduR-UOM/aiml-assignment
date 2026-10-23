@@ -115,7 +115,7 @@ def model_zoo(features: list[str]) -> dict:
              "model__min_samples_leaf": randint(5, 60),
              "model__ccp_alpha": loguniform(1e-1, 1e4)}),
         "Random Forest": (
-            pipe(RandomForestRegressor(random_state=RS, n_jobs=-1), scale=False),
+            pipe(RandomForestRegressor(random_state=RS, n_jobs=1), scale=False),
             {"model__n_estimators": randint(200, 700),
              "model__max_depth": [None, 8, 12, 16, 24],
              "model__max_features": ["sqrt", 0.33, 0.5, 0.8],
@@ -128,7 +128,7 @@ def model_zoo(features: list[str]) -> dict:
              "model__subsample": uniform(0.6, 0.4),
              "model__min_samples_leaf": randint(3, 30)}),
         "XGBoost": (
-            pipe(XGBRegressor(random_state=RS, n_jobs=-1, tree_method="hist"), scale=False),
+            pipe(XGBRegressor(random_state=RS, n_jobs=1, tree_method="hist"), scale=False),
             {"model__n_estimators": randint(200, 1000),
              "model__learning_rate": loguniform(0.01, 0.2),
              "model__max_depth": randint(2, 8),
@@ -138,7 +138,7 @@ def model_zoo(features: list[str]) -> dict:
              "model__reg_alpha": loguniform(1e-3, 10),
              "model__reg_lambda": loguniform(1e-2, 50)}),
         "LightGBM": (
-            pipe(LGBMRegressor(random_state=RS, n_jobs=-1, verbose=-1), scale=False),
+            pipe(LGBMRegressor(random_state=RS, n_jobs=1, verbose=-1), scale=False),
             {"model__n_estimators": randint(200, 1000),
              "model__learning_rate": loguniform(0.01, 0.2),
              "model__num_leaves": randint(8, 64),
