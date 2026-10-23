@@ -66,10 +66,17 @@ jobs:
           STATUS=$(az ml job show -n "$JOB" --query status -o tsv)
           echo "Status: $STATUS"
           test "$STATUS" = "Completed"
+          # Outputs live under the step jobs, not the pipeline job
+          PREP=$(az ml job list --parent-job-name "$JOB" --query "[?display_name=='prep'].name | [0]" -o tsv)
+          TRAIN=$(az ml job list --parent-job-name "$JOB" --query "[?display_name=='train'].name | [0]" -o tsv)
+          echo "Step jobs: prep=$PREP train=$TRAIN"
+          test -n "$PREP" && test -n "$TRAIN"
+          echo "prep=$PREP" >> "$GITHUB_OUTPUT"
+          echo "train=$TRAIN" >> "$GITHUB_OUTPUT"
 
       - name: Download metrics
         run: |
-          az ml job download -n ${{ steps.job.outputs.job }} --output-name model_dir --download-path out
+          az ml job download -n ${{ steps.job.outputs.train }} --output-name model_dir --download-path out
           cp "$(find out -name metrics.json | head -1)" metrics.json
           cat metrics.json
 
@@ -98,10 +105,10 @@ jobs:
           import json; m=json.load(open('metrics.json'))
           for k,v in m.items(): print(f'{k}={v}')")
           VER=$(az ml model create --name paddy-yield --type custom_model \
-                --path "azureml://jobs/$JOB/outputs/model_dir" \
+                --path "azureml://jobs/${{ steps.job.outputs.train }}/outputs/model_dir" \
                 --tags "${TAGS[@]}" "job=$JOB" "champion=false" --query version -o tsv)
           az ml data create --name paddy-model-table --version "$(date +%Y%m%d%H%M)" --type uri_folder \
-                --path "azureml://jobs/$JOB/outputs/model_table" -o none
+                --path "azureml://jobs/${{ steps.job.outputs.prep }}/outputs/model_table" -o none
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "Registered paddy-yield version $VER" >> "$GITHUB_STEP_SUMMARY"
 
